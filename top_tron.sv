@@ -8,7 +8,7 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-module top_snake #(parameter CORDW=10) (    // coordinate width
+module top_tron #(parameter CORDW=10) (    // coordinate width
     input  wire logic clk_pix,             // pixel clock
     input  wire logic sim_rst,             // sim reset
     input  wire logic btn_start,           // start button
@@ -30,8 +30,8 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     
     // gameplay parameters
     localparam WIN        =  5;  // score needed to win a game (max 9)
-    localparam SNAKE_SIZE = 10;  // width and legth of a single snake square in pixels
-    localparam INIT_DIST  = 50;  // Initial distance of snake from the wall
+    localparam TRON_SIZE = 10;  // width and legth of a single tron square in pixels
+    localparam INIT_DIST  = 50;  // Initial distance of tron from the wall
     localparam I_SPEED = 2; // inverse speed modifier (higher means slower)
     
     // clock
@@ -60,8 +60,8 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     // screen dimensions (must match display_inst)
     localparam H_RES = 640;  // horizontal screen resolution
     localparam V_RES = 480;  // vertical screen resolution
-    localparam H_SIZE = 64; // resolution divided by snake size
-    localparam V_SIZE = 48; // resolution divided by snake size
+    localparam H_SIZE = 64; // resolution divided by tron size
+    localparam V_SIZE = 48; // resolution divided by tron size
 
     logic frame;  // high for one clock tick at the start of vertical blanking
     always_comb frame = (sy == V_RES && sx == 0);
@@ -71,20 +71,16 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     logic [3:0] score_p2;  // right-side score
 
     // drawing signals
-    logic snake_p1_head, snake_p2_head, pellet, snake_p1, snake_p2;
+    logic tron_p1_head, tron_p2_head, tron_p1, tron_p2;
 
-    // snake head properties
-    logic [CORDW-1:0] snake_p1_x, snake_p1_y, snake_p2_x, snake_p2_y;
-    enum {UP, DOWN, LEFT, RIGHT} snake_p1_dir, snake_p2_dir;
-    logic [7:0] snake_p1_length, snake_p2_length;
+    // tron head properties
+    logic [CORDW-1:0] tron_p1_x, tron_p1_y, tron_p2_x, tron_p2_y;
+    enum {UP, DOWN, LEFT, RIGHT} tron_p1_dir, tron_p2_dir;
+    logic [7:0] tron_p1_length, tron_p2_length;
     logic coll_p1, coll_p2;
     
-    // snake body properties
-    logic snake_p1_body [H_SIZE:0] [V_SIZE:0], snake_p2_body [H_SIZE:0] [V_SIZE:0]; // boolean 64 by 48 array storing a value for each spot (is actually 65 by 49 for bit size matching purposes but 64 by 48 is used
-    //logic [2:0] snake_p2_body [63:0] [47:0]; // bit is set to true if snake body exists in that pixel
-    
-    // pellet properties
-    //logic 
+    // tron body properties
+    logic tron_p1_body [H_SIZE:0] [V_SIZE:0], tron_p2_body [H_SIZE:0] [V_SIZE:0]; // boolean 64 by 48 array storing a value for each spot (is actually 65 by 49 for bit size matching purposes but 64 by 48 is used
 
     // debounce buttons
     logic sig_start, 
@@ -155,58 +151,58 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		case (state)
 			NEW_GAME: score_p1 <= 0;
 			POSITION: begin
-				snake_p1_x <= INIT_DIST;
-				snake_p1_y <= (V_RES - SNAKE_SIZE)/2 + SNAKE_SIZE/2;
-				snake_p1_dir <= RIGHT;
+				tron_p1_x <= INIT_DIST;
+				tron_p1_y <= (V_RES - TRON_SIZE)/2 + TRON_SIZE/2;
+				tron_p1_dir <= RIGHT;
 				for (x_1 = 0; x_1 < H_SIZE; x_1 = x_1 + 1) begin
 					for (y_1 = 0; y_1 < V_SIZE; y_1 = y_1 + 1) begin
-						snake_p1_body [x_1] [y_1] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
+						tron_p1_body [x_1] [y_1] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
 					end
 				end
 				coll_p1 <= 0;
 			end
 			PLAY: begin
 				if (clk_game) begin
-					if (sig_right_p1_next && (snake_p1_dir != LEFT)) begin
-						snake_p1_dir <= RIGHT;
-					end else if (sig_left_p1_next && (snake_p1_dir != RIGHT)) begin
-						snake_p1_dir <= LEFT;
-					end else if (sig_up_p1_next && (snake_p1_dir != DOWN)) begin
-						snake_p1_dir <= UP;
-					end else if (sig_down_p1_next && (snake_p1_dir != UP)) begin
-						snake_p1_dir <= DOWN;
+					if (sig_right_p1_next && (tron_p1_dir != LEFT)) begin
+						tron_p1_dir <= RIGHT;
+					end else if (sig_left_p1_next && (tron_p1_dir != RIGHT)) begin
+						tron_p1_dir <= LEFT;
+					end else if (sig_up_p1_next && (tron_p1_dir != DOWN)) begin
+						tron_p1_dir <= UP;
+					end else if (sig_down_p1_next && (tron_p1_dir != UP)) begin
+						tron_p1_dir <= DOWN;
 					end
 					
-					case (snake_p1_dir)
+					case (tron_p1_dir)
 						UP: begin
-							if (snake_p1_y < SNAKE_SIZE) begin
+							if (tron_p1_y < TRON_SIZE) begin
 		                        score_p2 <= score_p2 + 1;
 		                        coll_p1 <= 1;
-		                    end else snake_p1_y <= snake_p1_y - SNAKE_SIZE;
+		                    end else tron_p1_y <= tron_p1_y - TRON_SIZE;
 	                    end
 						DOWN: begin
-							if (snake_p1_y + SNAKE_SIZE >= V_RES-1) begin
+							if (tron_p1_y + TRON_SIZE >= V_RES-1) begin
 		                        score_p2 <= score_p2 + 1;
 		                        coll_p1 <= 1;
-		                    end else snake_p1_y <= snake_p1_y + SNAKE_SIZE;
+		                    end else tron_p1_y <= tron_p1_y + TRON_SIZE;
 	                    end
 						LEFT: begin
-							if (snake_p1_x < SNAKE_SIZE) begin
+							if (tron_p1_x < TRON_SIZE) begin
 		                        score_p2 <= score_p2 + 1;
 		                        coll_p1 <= 1;
-		                    end else snake_p1_x <= snake_p1_x - SNAKE_SIZE;
+		                    end else tron_p1_x <= tron_p1_x - TRON_SIZE;
 	                    end
 						RIGHT: begin
-							if (snake_p1_x + SNAKE_SIZE >= H_RES-1) begin
+							if (tron_p1_x + TRON_SIZE >= H_RES-1) begin
 		                        score_p2 <= score_p2 + 1;
 		                        coll_p1 <= 1;
-		                    end else snake_p1_x <= snake_p1_x + SNAKE_SIZE;
+		                    end else tron_p1_x <= tron_p1_x + TRON_SIZE;
 	                    end
                     endcase
-                    snake_p1_body [snake_p1_x/10] [snake_p1_y/10] <= 1;
+                    tron_p1_body [tron_p1_x/10] [tron_p1_y/10] <= 1;
 				end
 				
-				if ((!coll_p1) && ((snake_p1_head && snake_p1) || (snake_p1_head && snake_p2) || (snake_p1_head && snake_p2_head))) begin
+				if ((!coll_p1) && ((tron_p1_head && tron_p1) || (tron_p1_head && tron_p2) || (tron_p1_head && tron_p2_head))) begin
 					score_p2 <= score_p2 + 1;
 					coll_p1 <= 1;
 				end
@@ -221,58 +217,58 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		case (state)
 			NEW_GAME: score_p2 <= 0;
 			POSITION: begin
-				snake_p2_x <= H_RES - INIT_DIST;
-				snake_p2_y <= (V_RES - SNAKE_SIZE)/2 + SNAKE_SIZE/2;
-				snake_p2_dir <= LEFT;
+				tron_p2_x <= H_RES - INIT_DIST;
+				tron_p2_y <= (V_RES - TRON_SIZE)/2 + TRON_SIZE/2;
+				tron_p2_dir <= LEFT;
 				for (x_2 = 0; x_2 < H_SIZE; x_2 = x_2 + 1) begin
 					for (y_2 = 0; y_2 < V_SIZE; y_2 = y_2 + 1) begin
-						snake_p2_body [x_2] [y_2] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
+						tron_p2_body [x_2] [y_2] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
 					end
 				end
 				coll_p2 <= 0;
 			end
 			PLAY: begin
 				if (clk_game) begin
-					if (sig_right_p2_next && (snake_p2_dir != LEFT)) begin
-						snake_p2_dir <= RIGHT;
-					end else if (sig_left_p2_next && (snake_p2_dir != RIGHT)) begin
-						snake_p2_dir <= LEFT;
-					end else if (sig_up_p2_next && (snake_p2_dir != DOWN)) begin
-						snake_p2_dir <= UP;
-					end else if (sig_down_p2_next && (snake_p2_dir != UP)) begin
-						snake_p2_dir <= DOWN;
+					if (sig_right_p2_next && (tron_p2_dir != LEFT)) begin
+						tron_p2_dir <= RIGHT;
+					end else if (sig_left_p2_next && (tron_p2_dir != RIGHT)) begin
+						tron_p2_dir <= LEFT;
+					end else if (sig_up_p2_next && (tron_p2_dir != DOWN)) begin
+						tron_p2_dir <= UP;
+					end else if (sig_down_p2_next && (tron_p2_dir != UP)) begin
+						tron_p2_dir <= DOWN;
 					end
 					
-					case (snake_p2_dir)
+					case (tron_p2_dir)
 						UP: begin
-							if (snake_p2_y < SNAKE_SIZE) begin
+							if (tron_p2_y < TRON_SIZE) begin
 		                        score_p1 <= score_p1 + 1;
 		                        coll_p2 <= 1;
-		                    end else snake_p2_y <= snake_p2_y - SNAKE_SIZE;
+		                    end else tron_p2_y <= tron_p2_y - TRON_SIZE;
 	                    end
 						DOWN: begin
-							if (snake_p2_y + SNAKE_SIZE >= V_RES-1) begin
+							if (tron_p2_y + TRON_SIZE >= V_RES-1) begin
 		                        score_p1 <= score_p1 + 1;
 		                        coll_p2 <= 1;
-		                    end else snake_p2_y <= snake_p2_y + SNAKE_SIZE;
+		                    end else tron_p2_y <= tron_p2_y + TRON_SIZE;
 	                    end
 						LEFT: begin
-							if (snake_p2_x < SNAKE_SIZE) begin
+							if (tron_p2_x < TRON_SIZE) begin
 		                        score_p1 <= score_p1 + 1;
 		                        coll_p2 <= 1;
-		                    end else snake_p2_x <= snake_p2_x - SNAKE_SIZE;
+		                    end else tron_p2_x <= tron_p2_x - TRON_SIZE;
 	                    end
 						RIGHT: begin
-							if (snake_p2_x + SNAKE_SIZE >= H_RES-1) begin
+							if (tron_p2_x + TRON_SIZE >= H_RES-1) begin
 		                        score_p1 <= score_p1 + 1;
 		                        coll_p2 <= 1;
-		                    end else snake_p2_x <= snake_p2_x + SNAKE_SIZE;
+		                    end else tron_p2_x <= tron_p2_x + TRON_SIZE;
 	                    end
                     endcase
-                    snake_p2_body [snake_p2_x/10] [snake_p2_y/10] <= 1;
+                    tron_p2_body [tron_p2_x/10] [tron_p2_y/10] <= 1;
 				end
 				
-				if ((!coll_p2) && ((snake_p2_head && snake_p2) || (snake_p2_head && snake_p1) || (snake_p2_head && snake_p1_head))) begin
+				if ((!coll_p2) && ((tron_p2_head && tron_p2) || (tron_p2_head && tron_p1) || (tron_p2_head && tron_p1_head))) begin
 					score_p1 <= score_p1 + 1;
 					coll_p2 <= 1;
 				end
@@ -284,15 +280,15 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 	
 	// activate draw signals
 	always_comb begin
-		snake_p1_head = (sx >= snake_p1_x) && (sx < snake_p1_x + SNAKE_SIZE)
-						&& (sy >= snake_p1_y) && (sy < snake_p1_y + SNAKE_SIZE);
+		tron_p1_head = (sx >= tron_p1_x) && (sx < tron_p1_x + TRON_SIZE)
+						&& (sy >= tron_p1_y) && (sy < tron_p1_y + TRON_SIZE);
 						
-		snake_p1 = snake_p1_body [sx / 10] [sy / 10];
+		tron_p1 = tron_p1_body [sx / 10] [sy / 10];
 		
-		snake_p2_head = (sx >= snake_p2_x) && (sx < snake_p2_x + SNAKE_SIZE)
-						&& (sy >= snake_p2_y) && (sy < snake_p2_y + SNAKE_SIZE);
+		tron_p2_head = (sx >= tron_p2_x) && (sx < tron_p2_x + TRON_SIZE)
+						&& (sy >= tron_p2_y) && (sy < tron_p2_y + TRON_SIZE);
 						
-		snake_p2 = snake_p2_body [sx / 10] [sy / 10];
+		tron_p2 = tron_p2_body [sx / 10] [sy / 10];
 		
 	end
 
@@ -311,9 +307,8 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     logic [3:0] paint_r, paint_g, paint_b;
     always_comb begin
         if (pix_score) {paint_r, paint_g, paint_b} = 12'hF30;  // score
-        else if (pellet) {paint_r, paint_g, paint_b} = 12'hFC0;  // pellet
-        else if (snake_p1_head || snake_p1) {paint_r, paint_g, paint_b} = 12'h0F0;  // snake 1
-        else if (snake_p2_head || snake_p2) {paint_r, paint_g, paint_b} = 12'hF0F;  // snake 2
+        else if (tron_p1_head || tron_p1) {paint_r, paint_g, paint_b} = 12'h0F0;  // tron 1
+        else if (tron_p2_head || tron_p2) {paint_r, paint_g, paint_b} = 12'hF0F;  // tron 2
         else {paint_r, paint_g, paint_b} = 12'h200;  // background
     end
 
