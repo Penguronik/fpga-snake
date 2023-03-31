@@ -1,4 +1,6 @@
 
+tron: tron.exe
+
 snake: snake.exe
 
 %.exe: %.mk
