@@ -6,13 +6,19 @@
  if you create a frame clock change the filter random number logic use that clock as well
  whats stopping you from using the clock version of game as the clock instead of clk_pix?
  move snake collision conditionals into if (clk_game) as well
- test position 64 48 for a pellet
+ create a singular lFSR module that handles most width cases
+ make PELLET_INC increase feel more natural?
+*/
+
+/* When changing resolution or SNAKE_SIZE, update the following when necessary:
+	CORDW, H_RES, V_RES, SNAKE_SIZE, H_WIDTH, V_WIDTH, H_SIZE, V_SIZE, GRIDW, LFSR modules
 */
 
 `default_nettype none
 `timescale 1ns / 1ps
 
-module top_snake #(parameter CORDW=10) (    // coordinate width
+module top_snake #(parameter CORDW=10) // coordinate width, set the number of bits the coordinates have to be represented by in the current resolution
+(
     input  wire logic clk_pix,             // pixel clock
     input  wire logic sim_rst,             // sim reset
     input  wire logic btn_start,           // start button
@@ -31,21 +37,23 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     output      logic [7:0] sdl_g,         // 8-bit green
     output      logic [7:0] sdl_b          // 8-bit blue
     );
-    
+
     // gameplay parameters
-    localparam WIN         =  5;  // score needed to win a game (max 9)
-    localparam SNAKE_SIZE  = 10;  // width and legth of a single snake square in pixels
-    localparam INIT_DIST   = 50;  // Initial distance of snake from the wall
+    localparam WIN         =  9;  // score needed to win a game (max 9)
+    localparam SNAKE_SIZE  =  8;  // width and legth of a single snake square in pixels, has to be a power of 2 that divides the H_RES and V_RES
+    // When changing the SNAKE_SIZE make sure to also change the H_SIZE, V_SIZE, and GRIDW params
+    localparam INIT_DIST   = 40;  // Initial distance of snake from the wall
     localparam I_SPEED	   =  2;  // inverse speed modifier (higher means slower)
     localparam INIT_LENGTH =  3;  // Initial length of snake
+    localparam PELLET_INC  =  3;  // The incremement that the snake's length increases by when a pellet is collected
     
     // clock
     logic [3:0] cycle;
     logic clk_game;
     
     // temp for loop iterators
-    logic [6:0] x_1, x_2;
-    logic [5:0] y_1, y_2;
+    logic [CORDW-1:0] x_1, x_2;
+    logic [CORDW-1:0] y_1, y_2;
     
     // display sync signals and coordinates
     logic [CORDW-1:0] sx, sy;
@@ -65,8 +73,11 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     // screen dimensions (must match display_inst)
     localparam H_RES = 640;  // horizontal screen resolution
     localparam V_RES = 480;  // vertical screen resolution
-    localparam [6:0] H_SIZE = 64; // resolution divided by snake size
-    localparam [5:0] V_SIZE = 48; // resolution divided by snake size
+    localparam H_WIDTH = 7; // number of pixels needed to represent the horizontal size, used for array lookups
+    localparam V_WIDTH = 6; // number of pixels needed to represent the vertical size, used for array lookups
+    localparam [CORDW-1:0] H_SIZE = 80; // resolution divided by snake size (H_RES/SNAKE_SIZE)
+    localparam [CORDW-1:0] V_SIZE = 60; // resolution divided by snake size (V_RES/SNAKE_SIZE)
+    localparam GRIDW  = 12; // grid width, set the number of bits needed to represent the entire H_SIZE*V_SIZE grid of SNAKE_SIZE*SNAKE_SIZE squares
 
     logic frame;  // high for one clock tick at the start of vertical blanking
     always_comb frame = (sy == V_RES && sx == 0);
@@ -81,16 +92,16 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
     // snake head properties
     logic [CORDW-1:0] snake_p1_x, snake_p1_y, snake_p2_x, snake_p2_y;
     enum {UP, DOWN, LEFT, RIGHT} snake_p1_dir, snake_p2_dir;
-    logic [12:0] snake_p1_length, snake_p2_length;
+    logic [GRIDW-1:0] snake_p1_length, snake_p2_length;
     logic coll_p1, coll_p2;
     
     // snake body properties
-    logic [12:0] snake_p1_body [H_SIZE:0] [V_SIZE:0];
-    logic [12:0] snake_p2_body [H_SIZE:0] [V_SIZE:0]; // 64 by 48 array storing a value for each spot (is actually 65 by 49 for bit size matching purposes but 64 by 48 is used). The value stored on each spot represents how many game clock cycles until that spot is no longer a part of the snake body
+    logic [GRIDW-1:0] snake_p1_body [H_SIZE-1:0] [V_SIZE-1:0];
+    logic [GRIDW-1:0] snake_p2_body [H_SIZE-1:0] [V_SIZE-1:0]; // H_SIZE by V_SIZE array storing a value for each spot. The value stored on each spot represents how many game clock cycles until that spot is no longer a part of the snake body
     
     // pellet properties
-    logic [6:0] pellet_rand_x, pellet_x_filter, pellet_x;
-    logic [5:0] pellet_rand_y, pellet_y_filter, pellet_y;
+    logic [CORDW-1:0] pellet_rand_x, pellet_x_filter, pellet_x;
+    logic [CORDW-1:0] pellet_rand_y, pellet_y_filter, pellet_y;
     logic pellet_collected;
 
     // debounce buttons
@@ -133,14 +144,14 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 	input_buffer buff_up_p2 (.clk(clk_game), .signal(sig_up_p2), .out(sig_up_p2_next));
 	input_buffer buff_down_p2 (.clk(clk_game), .signal(sig_down_p2), .out(sig_down_p2_next));
 	
-	// pseudo-random number generator for pellet placement
-	LFSR_7bit pellet_rng_x (.clk(clk_pix), .rst(sim_rst), .LFSR_Data(pellet_rand_x));
-	LFSR_6bit pellet_rng_y (.clk(clk_pix), .rst(sim_rst), .LFSR_Data(pellet_rand_y));
+	// pseudo-random number generator for pellet placement, the LSFR bit width needs to be match H_WIDTH and V_WIDTH
+	LFSR_7bit pellet_rng_x (.clk(clk_pix), .rst(sim_rst), .LFSR_Data(pellet_rand_x[H_WIDTH-1:0]));
+	LFSR_6bit pellet_rng_y (.clk(clk_pix), .rst(sim_rst), .LFSR_Data(pellet_rand_y[V_WIDTH-1:0]));
 	
 	// filter random number
 	always_ff @(posedge clk_pix) begin
 		if ((pellet_rand_x < H_SIZE) && (pellet_rand_y < V_SIZE)) begin
-			if ((snake_p1_body [pellet_rand_x] [pellet_rand_y] == 0) && (snake_p2_body [pellet_rand_x] [pellet_rand_y] == 0)) begin
+			if ((snake_p1_body [pellet_rand_x[H_WIDTH-1:0]] [pellet_rand_y[V_WIDTH-1:0]] == 0) && (snake_p2_body [pellet_rand_x[H_WIDTH-1:0]] [pellet_rand_y[V_WIDTH-1:0]] == 0)) begin
 				pellet_x_filter <= pellet_rand_x;
 				pellet_y_filter <= pellet_rand_y;
 			end
@@ -182,7 +193,7 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 				snake_p1_length <= INIT_LENGTH;
 				for (x_1 = 0; x_1 < H_SIZE; x_1 = x_1 + 1) begin
 					for (y_1 = 0; y_1 < V_SIZE; y_1 = y_1 + 1) begin
-						snake_p1_body [x_1] [y_1] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
+						snake_p1_body [x_1[H_WIDTH-1:0]] [y_1[V_WIDTH-1:0]] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
 					end
 				end
 				coll_p1 <= 0;
@@ -225,15 +236,15 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		                    end else snake_p1_x <= snake_p1_x + SNAKE_SIZE;
 	                    end
                     endcase
-                    snake_p1_body [snake_p1_x/10] [snake_p1_y/10] <= snake_p1_length;
+                    snake_p1_body [snake_p1_x/SNAKE_SIZE] [snake_p1_y/SNAKE_SIZE] <= snake_p1_length;
                     
-                    if (({3'b000, pellet_x} == snake_p1_x/10) && ({4'b0000, pellet_y} == snake_p1_y/10)) begin
+                    if ((pellet_x == snake_p1_x/SNAKE_SIZE) && (pellet_y == snake_p1_y/SNAKE_SIZE)) begin
                     	pellet_collected <= 1;
-                    	snake_p1_length <= snake_p1_length + 1;
+                    	snake_p1_length <= snake_p1_length + PELLET_INC;
                 	end else begin
                 		for (x_1 = 0; x_1 < H_SIZE; x_1 = x_1 + 1) begin
 							for (y_1 = 0; y_1 < V_SIZE; y_1 = y_1 + 1) begin
-								if (snake_p1_body [x_1] [y_1] > 0) snake_p1_body [x_1] [y_1] = snake_p1_body [x_1] [y_1] - 1;
+								if (snake_p1_body [x_1[H_WIDTH-1:0]] [y_1[V_WIDTH-1:0]] > 0) snake_p1_body [x_1[H_WIDTH-1:0]] [y_1[V_WIDTH-1:0]] = snake_p1_body [x_1[H_WIDTH-1:0]] [y_1[V_WIDTH-1:0]] - 1;
 							end
 						end
 					end
@@ -261,7 +272,7 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 				snake_p2_length <= INIT_LENGTH;
 				for (x_2 = 0; x_2 < H_SIZE; x_2 = x_2 + 1) begin
 					for (y_2 = 0; y_2 < V_SIZE; y_2 = y_2 + 1) begin
-						snake_p2_body [x_2] [y_2] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
+						snake_p2_body [x_2[H_WIDTH-1:0]] [y_2[V_WIDTH-1:0]] = 0; // blocking assignment used as delayed assignment to arrays inside for loops is unsupported and this accomplishes the same thing
 					end
 				end
 				coll_p2 <= 0;
@@ -304,15 +315,15 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		                    end else snake_p2_x <= snake_p2_x + SNAKE_SIZE;
 	                    end
                     endcase
-                    snake_p2_body [snake_p2_x/10] [snake_p2_y/10] <= snake_p2_length;
+                    snake_p2_body [snake_p2_x/SNAKE_SIZE] [snake_p2_y/SNAKE_SIZE] <= snake_p2_length;
                     
-                    if (({3'b000, pellet_x} == snake_p2_x/10) && ({4'b0000, pellet_y} == snake_p2_y/10)) begin
+                    if ((pellet_x == snake_p2_x/SNAKE_SIZE) && (pellet_y == snake_p2_y/SNAKE_SIZE)) begin
                     	pellet_collected <= 1;
-                    	snake_p2_length <= snake_p2_length + 1;
+                    	snake_p2_length <= snake_p2_length + PELLET_INC;
                 	end else begin
                 		for (x_2 = 0; x_2 < H_SIZE; x_2 = x_2 + 1) begin
 							for (y_2 = 0; y_2 < V_SIZE; y_2 = y_2 + 1) begin
-								if (snake_p2_body [x_2] [y_2] > 0) snake_p2_body [x_2] [y_2] = snake_p2_body [x_2] [y_2] - 1;
+								if (snake_p2_body [x_2[H_WIDTH-1:0]] [y_2[V_WIDTH-1:0]] > 0) snake_p2_body [x_2[H_WIDTH-1:0]] [y_2[V_WIDTH-1:0]] = snake_p2_body [x_2[H_WIDTH-1:0]] [y_2[V_WIDTH-1:0]] - 1;
 							end
 						end
 					end
@@ -344,8 +355,8 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		case (state)
 			POSITION: begin
 				pellet_collected <= 1;
-				pellet_x <= 7'b1111111; // set to value outside of grid
-				pellet_y <= 6'b111111; // set to value outside of grid
+				pellet_x <= 10'b1111111111; // set to value outside of grid
+				pellet_y <= 10'b1111111111; // set to value outside of grid
 			end
 			
 			PLAY: begin
@@ -363,14 +374,14 @@ module top_snake #(parameter CORDW=10) (    // coordinate width
 		snake_p1_head = (sx >= snake_p1_x) && (sx < snake_p1_x + SNAKE_SIZE)
 						&& (sy >= snake_p1_y) && (sy < snake_p1_y + SNAKE_SIZE);
 						
-		snake_p1 = snake_p1_body [sx / 10] [sy / 10] > 0;
+		snake_p1 = snake_p1_body [sx/SNAKE_SIZE] [sy/SNAKE_SIZE] > 0;
 		
 		snake_p2_head = (sx >= snake_p2_x) && (sx < snake_p2_x + SNAKE_SIZE)
 						&& (sy >= snake_p2_y) && (sy < snake_p2_y + SNAKE_SIZE);
 						
-		snake_p2 = snake_p2_body [sx / 10] [sy / 10] > 0;
+		snake_p2 = snake_p2_body [sx/SNAKE_SIZE] [sy/SNAKE_SIZE] > 0;
 		
-		pellet = (sx/10 == {3'b000, pellet_x}) && (sy/10 == {4'b0000, pellet_y});
+		pellet = (sx/SNAKE_SIZE == pellet_x) && (sy/SNAKE_SIZE == pellet_y);
 		
 	end
 
@@ -433,31 +444,7 @@ module input_buffer (
 	end
 endmodule
 
-module LFSR_6bit
-	(
-	input clk,
-	input rst,
-	output [5:0] LFSR_Data
-	);
- 
-	logic [6:1] LFSR = 0;
-	logic       XNOR;
- 
-	always_ff @(posedge clk) begin
-		if (rst) LFSR <= 6'b100001;
-		else LFSR <= {LFSR[5:1], XNOR};
-	end
-
-	// taps from https://docs.xilinx.com/v/u/en-US/xapp210
-	always_comb begin
-		XNOR = LFSR[6] ^~ LFSR[5];
-	end
- 
-	assign LFSR_Data = LFSR[6:1];
- 
-endmodule
-
-module LFSR_7bit
+module LFSR_7bit // linear feedback shift register of 7 bit width
 	(
 	input clk,
 	input rst,
@@ -468,15 +455,64 @@ module LFSR_7bit
 	logic       XNOR;
  
 	always_ff @(posedge clk) begin
-		if (rst) LFSR <= 7'b1000001;
-		else LFSR <= {LFSR[6:1], XNOR};
+		if (rst) LFSR <= 7'b1000001; // on reset set seed
+		else LFSR <= {LFSR[6:1], XNOR}; // move down one bit to the left and add the XNOR bit to the right
 	end
 
 	// taps from https://docs.xilinx.com/v/u/en-US/xapp210
 	always_comb begin
-		XNOR = LFSR[7] ^~ LFSR[6];
+		XNOR = LFSR[7] ^~ LFSR[6]; // this configuration allows for the most unique and "random" outputs
 	end
  
 	assign LFSR_Data = LFSR[7:1];
  
 endmodule
+
+module LFSR_6bit // linear feedback shift register of 6 bit width
+	(
+	input clk,
+	input rst,
+	output [5:0] LFSR_Data
+	);
+ 
+	logic [6:1] LFSR = 0;
+	logic       XNOR;
+ 
+	always_ff @(posedge clk) begin
+		if (rst) LFSR <= 6'b100001; // on reset set seed
+		else LFSR <= {LFSR[5:1], XNOR}; // move down one bit to the left and add the XNOR bit to the right
+	end
+
+	// taps from https://docs.xilinx.com/v/u/en-US/xapp210
+	always_comb begin
+		XNOR = LFSR[6] ^~ LFSR[5]; // this configuration allows for the most unique and "random" outputs
+	end
+ 
+	assign LFSR_Data = LFSR[6:1];
+ 
+endmodule
+/*
+module LFSR_5bit // linear feedback shift register of 5 bit width
+	(
+	input clk,
+	input rst,
+	output [4:0] LFSR_Data
+	);
+ 
+	logic [5:1] LFSR = 0;
+	logic       XNOR;
+ 
+	always_ff @(posedge clk) begin
+		if (rst) LFSR <= 5'b10001; // on reset set seed
+		else LFSR <= {LFSR[4:1], XNOR}; // move down one bit to the left and add the XNOR bit to the right
+	end
+
+	// taps from https://docs.xilinx.com/v/u/en-US/xapp210
+	always_comb begin
+		XNOR = LFSR[5] ^~ LFSR[3]; // this configuration allows for the most unique and "random" outputs
+	end
+ 
+	assign LFSR_Data = LFSR[5:1];
+ 
+endmodule
+*/

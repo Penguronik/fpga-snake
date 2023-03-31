@@ -11,9 +11,7 @@ snake: snake.exe
 	    -cc $< --exe main_$(basename $@).cpp -o $(basename $@) \
 		-CFLAGS "`sdl2-config --cflags`" -LDFLAGS "`sdl2-config --libs`"
 
-all: pong
-
 clean:
 	rm -rf ./obj_dir
 
-.PHONY: all clean
+.PHONY: clean
