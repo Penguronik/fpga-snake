@@ -12,7 +12,7 @@ Requirements:
 Run `make snake` to build the snake game or `make tron` to build the tron game. They will be built in the obj_dir directory. Run `./obj_dir/snake` or `./obj_dir/tron` to start the program.
 
 ## Simulation
-The graphical simulation is done using the SDL2 library which we connect to the cpp simulation code that Verilator generates of our System Verilog code. The implementation of SDL2 with the verilog code is accomplished using the graphics modules made by Will Green as part of the [Project F](https://github.com/projf) github repo.
+The graphical simulation is done using the SDL2 library which we connect to the cpp simulation code that Verilator generates from our System Verilog code. The implementation of SDL2 with the verilog code is accomplished using the graphics modules and framework made by Will Green as part of the [Project F](https://github.com/projf) github repo.
 
 ## State Machine Diagram
 Below is the state machine used in the snake game for the main game logic. It is updated once every clock cycle. The different components of the game base their actions on the state machine's state.
