@@ -27,6 +27,6 @@ There is an array holding a value of 0 for each spot in the game grid. As the sn
 
 Below is an example of the values each grid spot holds as the snake head moves:
 
-ㅤㅤㅤ
-<img src="https://user-images.githubusercontent.com/35043400/229265874-7b4c5542-5ccf-4be8-a89b-241ea99ef8fc.png" alt="fpga_gif2110-numbered" width="397" height="313" />ㅤㅤㅤㅤㅤㅤ
-<img src="https://user-images.githubusercontent.com/35043400/229265876-21b9bf2c-960d-41b3-aaf1-b3965f8b7597.png" alt="fpga_gif2113-numbered" width="397" height="313" />
+
+<img align="left" src="https://user-images.githubusercontent.com/35043400/229265874-7b4c5542-5ccf-4be8-a89b-241ea99ef8fc.png" alt="fpga_gif2110-numbered" width="397" height="313" />
+<img align="right" src="https://user-images.githubusercontent.com/35043400/229265876-21b9bf2c-960d-41b3-aaf1-b3965f8b7597.png" alt="fpga_gif2113-numbered" width="397" height="313" />
