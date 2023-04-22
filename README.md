@@ -1,4 +1,4 @@
-# fpga_snake
+# 2-Player FPGA Snake
 This is a 2 player snake game made in System Verilog to be synthesized for FPGAs. Also included in this repo is a 2 player tron game. The project also includes the components necessary to run a simulation of this System Verilog code on your computer by following the steps in [Compilation](#compilation). How this graphical simulation is accomplished is explained in [Simulation](#simulation). Also check out the [State Machine Diagram](#state-machine-diagram) and [Snake Tail Logic](#snake-tail-logic) for some more info on the logic behind the code.
 
 ![fpga-snake-gif](https://user-images.githubusercontent.com/35043400/229264796-87aa0ab5-23ab-4997-a65d-981694742f6d.gif)
